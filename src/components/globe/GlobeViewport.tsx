@@ -21,7 +21,7 @@ import {
   type SpeedMultiplier,
 } from '@/store/missionStore'
 import type { OrbitalElements, RSOObject, RsoListCategory } from '@/types'
-import { buildInterceptOverlay, buildPlanOverlay, type OverlayMarker, type OverlayPath } from './planOverlay'
+import { buildInterceptOverlay, buildPlanOverlay, inertialLng, inertialPath, type OverlayMarker, type OverlayPath } from './planOverlay'
 
 const HOME_VIEW = { lat: 18, lng: 79, altitude: 2.6 }
 const OVERLAY_REFRESH_MS = 250
@@ -391,6 +391,7 @@ export function GlobeViewport() {
       const s = useMissionStore.getState()
       const timeMs = selectDisplayTimeMs(s)
       const attention = attentionActive(s)
+      const inertial = frameRef.current === 'inertial'
 
       const sats = trackedSats(s)
       for (const sat of sats) {
@@ -429,7 +430,8 @@ export function GlobeViewport() {
         syncLabels(s.trackedIds)
         syncPlan(s)
         rings = ringsFor(s, timeMs)
-        globe.pathsData([...rings, ...(plan?.paths ?? [])])
+        const planPaths = plan?.paths ?? []
+        globe.pathsData([...rings, ...(inertial ? planPaths.map((p) => inertialPath(p, timeMs)) : planPaths)])
       }
       for (const label of labels.values()) {
         const sat = satById.get(label.id)
@@ -438,12 +440,15 @@ export function GlobeViewport() {
         label.lng = sat.lng
         label.alt = sat.alt
       }
+      for (const marker of plan?.markers ?? []) {
+        if (marker.at) marker.lng = inertial ? inertialLng(marker.at.lng, marker.at.ms, timeMs) : marker.at.lng
+      }
       globe.htmlElementsData([...labels.values(), ...(plan?.markers ?? [])])
 
       const followed =
         s.followSelected && s.selectedRsoId && s.trackedIds.includes(s.selectedRsoId) ? satById.get(s.selectedRsoId) : undefined
       // The ground under a fixed inertial direction moves west as the Earth spins east.
-      if (frameRef.current === 'inertial' && spunAtMs !== null) pendingSpinDeg -= earthSpinDeg(spunAtMs, timeMs)
+      if (inertial && spunAtMs !== null) pendingSpinDeg -= earthSpinDeg(spunAtMs, timeMs)
       spunAtMs = timeMs
       if (followed) {
         pendingSpinDeg = 0

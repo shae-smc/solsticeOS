@@ -1,14 +1,22 @@
 // Static globe overlay for the active COLA plan: the manoeuvred ground track between the
 // burns, the secondary's approach around TCA, and B1 / B2 / TCA markers. Rebuilt only when
 // the plan changes; everything is Earth-fixed, so satellites fly along it as time advances.
+// Each point keeps the instant it was sampled at, so an inertial view can re-project it.
 import { rsoById } from '@/data'
 import { maneuveredElementsAt } from '@/lib/maneuver'
-import { geoAt, orbitalPeriodS, type GeoPoint } from '@/lib/orbit'
+import { earthSpinDeg, geoAt, orbitalPeriodS, type GeoPoint } from '@/lib/orbit'
 import type { ConjunctionEvent, InterceptSequence, ManeuverSequence, ManeuverStep, ThreatWindow } from '@/types'
+
+/** A ground point plus the instant the object was there. */
+export interface TimedPoint extends GeoPoint {
+  atMs: number
+}
 
 export interface OverlayPath {
   id: string
   points: GeoPoint[]
+  /** When present, each point's instant: the path then follows an inertial view. */
+  times?: number[]
   color: string
   stroke: number
   dash: number
@@ -21,13 +29,31 @@ export interface OverlayMarker {
   lat: number
   lng: number
   alt: number
+  /** Earth-fixed longitude and instant of a timed marker, for inertial re-projection. */
+  at?: { lng: number; ms: number }
+}
+
+/**
+ * Longitude, at `displayMs`, of the point in space an object occupied at `atMs` above `lng`:
+ * the Earth has turned underneath it in between.
+ */
+export const inertialLng = (lng: number, atMs: number, displayMs: number) => lng + earthSpinDeg(displayMs, atMs)
+
+/** A path's points re-projected for an inertial view; untimed paths are returned as-is. */
+export function inertialPath(path: OverlayPath, displayMs: number): OverlayPath {
+  const { times } = path
+  if (!times) return path
+  return { ...path, points: path.points.map((p, i) => ({ ...p, lng: inertialLng(p.lng, times[i]!, displayMs) })) }
 }
 
 const APPROACH_WINDOW_MS = 12 * 60_000
 
-function sample(from: number, to: number, count: number, at: (t: number) => GeoPoint): GeoPoint[] {
-  return Array.from({ length: count + 1 }, (_, i) => at(from + ((to - from) * i) / count))
+function sample(from: number, to: number, count: number, at: (t: number) => GeoPoint): Pick<OverlayPath, 'points' | 'times'> {
+  const times = Array.from({ length: count + 1 }, (_, i) => from + ((to - from) * i) / count)
+  return { points: times.map(at), times }
 }
+
+const timed = (at: (t: number) => GeoPoint) => (t: number): TimedPoint => ({ ...at(t), atMs: t })
 
 function markerElement(text: string, color: string) {
   const el = document.createElement('div')
@@ -59,7 +85,7 @@ export function buildPlanOverlay(
       id: 'plan-arc',
       // Early burns are revolutions before TCA; draw only the final approach through Burn 2
       // so the arc does not wrap the globe several times.
-      points: sample(Math.max(b1, tca - (orbitalPeriodS(primary.smaKm) * 1000) / 2), Date.parse(burn2.end), 240, primaryAt),
+      ...sample(Math.max(b1, tca - (orbitalPeriodS(primary.smaKm) * 1000) / 2), Date.parse(burn2.end), 240, primaryAt),
       color: '#5b9bd1',
       stroke: 0.6,
       dash: 1,
@@ -67,7 +93,7 @@ export function buildPlanOverlay(
     },
     {
       id: 'secondary-approach',
-      points: sample(tca - APPROACH_WINDOW_MS, tca + APPROACH_WINDOW_MS, 60, (t) => geoAt(secondary, t)),
+      ...sample(tca - APPROACH_WINDOW_MS, tca + APPROACH_WINDOW_MS, 60, (t) => geoAt(secondary, t)),
       color: severityHex,
       stroke: 0.5,
       dash: 0.02,
@@ -75,18 +101,19 @@ export function buildPlanOverlay(
     },
   ]
 
-  const marker = (id: string, text: string, color: string, point: GeoPoint): OverlayMarker => ({
+  const marker = (id: string, text: string, color: string, point: TimedPoint): OverlayMarker => ({
     id,
     el: markerElement(text, color),
     lat: point.lat,
     lng: point.lng,
     alt: toAlt(point.altKm),
+    at: { lng: point.lng, ms: point.atMs },
   })
 
   const markers = [
-    marker('b1', `B1 +${burn1.deltaVMps.toFixed(2)} m/s`, '#d97a3f', primaryAt(b1)),
-    marker('b2', `B2 −${burn2.deltaVMps.toFixed(2)} m/s`, '#d97a3f', primaryAt(b2)),
-    marker('tca', 'TCA', severityHex, geoAt(secondary, tca)),
+    marker('b1', `B1 +${burn1.deltaVMps.toFixed(2)} m/s`, '#d97a3f', timed(primaryAt)(b1)),
+    marker('b2', `B2 −${burn2.deltaVMps.toFixed(2)} m/s`, '#d97a3f', timed(primaryAt)(b2)),
+    marker('tca', 'TCA', severityHex, timed((t) => geoAt(secondary, t))(tca)),
   ]
   return { paths, markers }
 }
@@ -116,26 +143,27 @@ export function buildInterceptOverlay(
   const paths: OverlayPath[] = [
     {
       id: 'intercept-approach',
-      points: sample(Math.max(b1, b2 - periodMs), arrival, 240, chaserAt),
+      ...sample(Math.max(b1, b2 - periodMs), arrival, 240, chaserAt),
       color: ratingHex,
       stroke: 0.6,
       dash: 0.02,
       gap: 0.008,
     },
   ]
-  const marker = (id: string, text: string, color: string, point: GeoPoint): OverlayMarker => ({
+  const marker = (id: string, text: string, color: string, point: TimedPoint): OverlayMarker => ({
     id,
     el: markerElement(text, color),
     lat: point.lat,
     lng: point.lng,
     alt: toAlt(point.altKm),
+    at: { lng: point.lng, ms: point.atMs },
   })
   return {
     paths,
     markers: [
-      marker('b1', `B1 ${signed(burn1)}`, '#d97a3f', chaserAt(b1)),
-      marker('b2', `B2 ${signed(burn2)}`, '#d97a3f', chaserAt(b2)),
-      marker('arrival', `ARRIVAL · ${sequence.standoffKm.toFixed(1)} km`, ratingHex, geoAt(target, arrival)),
+      marker('b1', `B1 ${signed(burn1)}`, '#d97a3f', timed(chaserAt)(b1)),
+      marker('b2', `B2 ${signed(burn2)}`, '#d97a3f', timed(chaserAt)(b2)),
+      marker('arrival', `ARRIVAL · ${sequence.standoffKm.toFixed(1)} km`, ratingHex, timed((t) => geoAt(target, t))(arrival)),
     ],
   }
 }
