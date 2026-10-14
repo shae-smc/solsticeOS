@@ -104,6 +104,15 @@ export function gmstRad(timeMs: number): number {
   return (((deg % 360) + 360) % 360) * DEG
 }
 
+/**
+ * Degrees the Earth turns between two instants, wrapped to [-180, 180). An inertial view
+ * counter-rotates the Earth-fixed camera by this so the orbit planes hold still on screen.
+ */
+export function earthSpinDeg(fromMs: number, toMs: number): number {
+  const deg = (gmstRad(toMs) - gmstRad(fromMs)) / DEG
+  return ((((deg + 180) % 360) + 360) % 360) - 180
+}
+
 /** Spherical-Earth geodetic point for the globe. */
 export function eciToGeo(r: Vec3, timeMs: number): GeoPoint {
   const theta = gmstRad(timeMs)
