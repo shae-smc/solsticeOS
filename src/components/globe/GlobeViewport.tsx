@@ -6,7 +6,7 @@ import { rsoById } from '@/data'
 import { cn } from '@/lib/cn'
 import { CATEGORY_HEX, CATEGORY_LABEL, SEVERITY_HEX } from '@/lib/format'
 import { maneuveredElementsAt } from '@/lib/maneuver'
-import { EARTH_RADIUS_KM, geoAt, orbitRing, type GeoPoint } from '@/lib/orbit'
+import { EARTH_RADIUS_KM, earthSpinDeg, geoAt, orbitRing, type GeoPoint } from '@/lib/orbit'
 import {
   selectActiveConjunction,
   selectActiveIntercept,
@@ -52,6 +52,13 @@ const withAlpha = (hex: string, alpha: number) => {
 }
 
 export type GlobeSurface = 'physical' | 'wireframe' | 'political'
+
+/**
+ * Inertial: the camera counter-rotates with sidereal time so orbit planes hold still and the
+ * Earth turns underneath. Earth-fixed: the camera stays over the ground and the planes sweep
+ * round ~15°/h, which reads as a RAAN change to anyone used to thinking in elements.
+ */
+export type GlobeFrame = 'inertial' | 'earth-fixed'
 
 const SURFACE_OPTIONS: { value: GlobeSurface; label: string; icon: typeof Globe2 }[] = [
   { value: 'physical', label: 'Physical', icon: Globe2 },
@@ -228,6 +235,15 @@ export function GlobeViewport() {
   const containerRef = useRef<HTMLDivElement>(null)
   const globeRef = useRef<GlobeInstance | null>(null)
   const [surface, setSurface] = useState<GlobeSurface>('physical')
+  const [frame] = useState<GlobeFrame>('inertial')
+  const frameRef = useRef(frame)
+  frameRef.current = frame
+  // Camera transitions in flight; the inertial spin waits for them rather than fighting them.
+  const flyingUntilRef = useRef(0)
+  const flyTo = (pov: { lat: number; lng: number; altitude: number }, ms: number) => {
+    flyingUntilRef.current = performance.now() + ms
+    globeRef.current?.pointOfView(pov, ms)
+  }
 
   useEffect(() => {
     const container = containerRef.current
@@ -367,6 +383,8 @@ export function GlobeViewport() {
 
     let frame = 0
     let lastOverlayAt = -Infinity
+    let spunAtMs: number | null = null
+    let pendingSpinDeg = 0
     let rings: OverlayPath[] = []
     const render = (now: number) => {
       headlight.position.copy(globe.camera().position)
@@ -424,7 +442,17 @@ export function GlobeViewport() {
 
       const followed =
         s.followSelected && s.selectedRsoId && s.trackedIds.includes(s.selectedRsoId) ? satById.get(s.selectedRsoId) : undefined
-      if (followed) globe.pointOfView({ lat: followed.lat, lng: followed.lng, altitude: globe.pointOfView().altitude })
+      // The ground under a fixed inertial direction moves west as the Earth spins east.
+      if (frameRef.current === 'inertial' && spunAtMs !== null) pendingSpinDeg -= earthSpinDeg(spunAtMs, timeMs)
+      spunAtMs = timeMs
+      if (followed) {
+        pendingSpinDeg = 0
+        globe.pointOfView({ lat: followed.lat, lng: followed.lng, altitude: globe.pointOfView().altitude })
+      } else if (Math.abs(pendingSpinDeg) > 1e-6 && now >= flyingUntilRef.current) {
+        const pov = globe.pointOfView()
+        globe.pointOfView({ ...pov, lng: pov.lng + pendingSpinDeg })
+        pendingSpinDeg = 0
+      }
 
       frame = requestAnimationFrame(render)
     }
@@ -501,18 +529,19 @@ export function GlobeViewport() {
     const s = useMissionStore.getState()
     const timeMs = selectDisplayTimeMs(s)
     const geo = geoAt(effectiveElements(s, object, timeMs), timeMs)
-    globe.pointOfView({ lat: geo.lat, lng: geo.lng, altitude: 1.8 }, 1200)
+    flyTo({ lat: geo.lat, lng: geo.lng, altitude: 1.8 }, 1200)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- flyTo only touches refs
   }, [selectedRsoId])
 
   return (
     <section className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-black" aria-label="3D operating picture">
       <div ref={containerRef} className="absolute inset-0" />
-      <GlobeLegend />
+      <GlobeLegend frame={frame} />
       <SurfaceSwitcher surface={surface} onChange={setSurface} />
       <SpeedControl />
       <button
         type="button"
-        onClick={() => globeRef.current?.pointOfView(HOME_VIEW, 1000)}
+        onClick={() => flyTo(HOME_VIEW, 1000)}
         className="absolute right-3 top-3 flex items-center gap-1.5 rounded-lg border border-glass-border bg-glass px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-secondary backdrop-blur-md transition-colors duration-100 ease-out hover:text-primary light:shadow-lg"
       >
         <LocateFixed className="size-3.5" /> Reset view
@@ -581,10 +610,10 @@ function SurfaceSwitcher({ surface, onChange }: { surface: GlobeSurface; onChang
   )
 }
 
-function GlobeLegend() {
+function GlobeLegend({ frame }: { frame: GlobeFrame }) {
   return (
     <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-glass-border bg-glass px-3 py-2 backdrop-blur-xl light:shadow-lg">
-      <div className="mb-1.5 text-[10px] text-secondary">Earth-fixed · Kepler + J₂</div>
+      <div className="mb-1.5 text-[10px] text-secondary">{frame === 'inertial' ? 'Inertial' : 'Earth-fixed'} · Kepler + J₂</div>
       <div className="flex gap-3 text-[10px] font-medium text-primary">
         {(Object.keys(CATEGORY_HEX) as RsoListCategory[]).map((c) => (
           <span key={c} className="flex items-center gap-1.5">
