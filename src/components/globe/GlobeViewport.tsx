@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Globe, { type GlobeInstance } from 'globe.gl'
 import * as THREE from 'three'
-import { Globe2, LocateFixed, Map as MapIcon, Orbit } from 'lucide-react'
+import { Axis3d, Earth, Globe2, LocateFixed, Map as MapIcon, Orbit } from 'lucide-react'
 import { rsoById } from '@/data'
 import { cn } from '@/lib/cn'
 import { CATEGORY_HEX, CATEGORY_LABEL, SEVERITY_HEX } from '@/lib/format'
@@ -59,6 +59,11 @@ export type GlobeSurface = 'physical' | 'wireframe' | 'political'
  * round ~15°/h, which reads as a RAAN change to anyone used to thinking in elements.
  */
 export type GlobeFrame = 'inertial' | 'earth-fixed'
+
+const FRAME_OPTIONS: { value: GlobeFrame; label: string; title: string; icon: typeof Globe2 }[] = [
+  { value: 'inertial', label: 'Inertial', title: 'Orbit planes fixed, Earth turns underneath', icon: Axis3d },
+  { value: 'earth-fixed', label: 'Earth-fixed', title: 'Camera fixed over the ground', icon: Earth },
+]
 
 const SURFACE_OPTIONS: { value: GlobeSurface; label: string; icon: typeof Globe2 }[] = [
   { value: 'physical', label: 'Physical', icon: Globe2 },
@@ -235,7 +240,7 @@ export function GlobeViewport() {
   const containerRef = useRef<HTMLDivElement>(null)
   const globeRef = useRef<GlobeInstance | null>(null)
   const [surface, setSurface] = useState<GlobeSurface>('physical')
-  const [frame] = useState<GlobeFrame>('inertial')
+  const [frame, setFrame] = useState<GlobeFrame>('inertial')
   const frameRef = useRef(frame)
   frameRef.current = frame
   // Camera transitions in flight; the inertial spin waits for them rather than fighting them.
@@ -543,6 +548,7 @@ export function GlobeViewport() {
       <div ref={containerRef} className="absolute inset-0" />
       <GlobeLegend frame={frame} />
       <SurfaceSwitcher surface={surface} onChange={setSurface} />
+      <FrameSwitcher frame={frame} onChange={setFrame} />
       <SpeedControl />
       <button
         type="button"
@@ -605,6 +611,35 @@ function SurfaceSwitcher({ surface, onChange }: { surface: GlobeSurface; onChang
           className={cn(
             'flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider transition-colors duration-100 ease-out',
             surface === value ? 'bg-accent-muted text-accent' : 'text-secondary hover:bg-elevated hover:text-primary',
+          )}
+        >
+          <Icon className="size-3.5" />
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Reference frame picker, under the surface picker. */
+function FrameSwitcher({ frame, onChange }: { frame: GlobeFrame; onChange: (frame: GlobeFrame) => void }) {
+  return (
+    <div
+      className="absolute left-3 top-12 flex overflow-hidden rounded-lg border border-glass-border bg-glass backdrop-blur-md light:shadow-lg"
+      role="radiogroup"
+      aria-label="Reference frame"
+    >
+      {FRAME_OPTIONS.map(({ value, label, title, icon: Icon }) => (
+        <button
+          key={value}
+          type="button"
+          role="radio"
+          aria-checked={frame === value}
+          title={title}
+          onClick={() => onChange(value)}
+          className={cn(
+            'flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider transition-colors duration-100 ease-out',
+            frame === value ? 'bg-accent-muted text-accent' : 'text-secondary hover:bg-elevated hover:text-primary',
           )}
         >
           <Icon className="size-3.5" />
