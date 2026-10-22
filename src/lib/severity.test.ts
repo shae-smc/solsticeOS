@@ -89,10 +89,12 @@ describe('demo scenario', () => {
 
   it('aggregates to the worst open conjunction per object', () => {
     const agg = aggregateSeverity('RSAT-2A', 'vulnerable', conjunctions, DEMO_EPOCH_MS)
-    expect(agg?.conjunctionIds).toEqual(['CJ-001'])
+    expect(agg?.conjunctionIds).toEqual(['CJ-001', 'CJ-006'])
     expect(agg?.index).toBeCloseTo(at('CJ-001').index)
     expect(aggregateSeverity('ISS', 'vulnerable', conjunctions, DEMO_EPOCH_MS)).toBeNull()
-    const closed = Date.parse(conjunctionById.get('CJ-001')!.windowEnd) + 1
-    expect(aggregateSeverity('RSAT-2A', 'vulnerable', conjunctions, closed)).toBeNull()
+    const firstClosed = Date.parse(conjunctionById.get('CJ-001')!.windowEnd) + 1
+    expect(aggregateSeverity('RSAT-2A', 'vulnerable', conjunctions, firstClosed)?.conjunctionIds).toEqual(['CJ-006'])
+    const bothClosed = Date.parse(conjunctionById.get('CJ-006')!.windowEnd) + 1
+    expect(aggregateSeverity('RSAT-2A', 'vulnerable', conjunctions, bothClosed)).toBeNull()
   })
 })

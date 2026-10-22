@@ -212,6 +212,59 @@
       ],
       "sequenceIds": [],
       "reasoning": null
+    },
+    {
+      "id": "CJ-006",
+      "primaryId": "RSAT-2A",
+      "secondaryId": "FY3D",
+      "tca": "2026-10-05T00:43:34Z",
+      "windowStart": "2026-09-28T06:00:00Z",
+      "windowEnd": "2026-10-05T01:43:34Z",
+      "missDistanceM": 204,
+      "missVector": {
+        "radialM": 52,
+        "inTrackM": -188,
+        "crossTrackM": 61
+      },
+      "pc": 0.00016,
+      "relativeVelocityKmS": 6.78,
+      "covariance": {
+        "radialM": 40,
+        "inTrackM": 260,
+        "crossTrackM": 55
+      },
+      "screeningRadiusKm": 5,
+      "assessments": [
+        {
+          "assessedAt": "2026-09-28T06:00:00Z",
+          "missDistanceM": 1540,
+          "pc": 0.0000031,
+          "tca": "2026-10-05T00:43:57Z"
+        },
+        {
+          "assessedAt": "2026-09-29T06:00:00Z",
+          "missDistanceM": 820,
+          "pc": 0.000019,
+          "tca": "2026-10-05T00:43:43Z"
+        },
+        {
+          "assessedAt": "2026-09-30T06:00:00Z",
+          "missDistanceM": 390,
+          "pc": 0.000071,
+          "tca": "2026-10-05T00:43:37Z"
+        },
+        {
+          "assessedAt": "2026-10-01T06:00:00Z",
+          "missDistanceM": 204,
+          "pc": 0.00016,
+          "tca": "2026-10-05T00:43:34Z"
+        }
+      ],
+      "sequenceIds": [
+        "SEQ-006-A",
+        "SEQ-006-B"
+      ],
+      "reasoning": "Hypothetical scenario, not a real conjunction. FENGYUN 3D (CMA weather satellite, NORAD 43010) really flies a sun-synchronous orbit about 9 km above RESOURCESAT-2A; for the demo its plane and phase are shifted so the two cross near 80°N at 6.8 km/s. With no coordination channel to its operator, Orbital Rakshak plans the avoidance for our asset alone."
     }
   ]
 }

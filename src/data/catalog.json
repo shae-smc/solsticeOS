@@ -682,6 +682,30 @@
         "argpDeg": 315.25651,
         "meanAnomalyDeg": 23.04533
       }
+    },
+    {
+      "id": "FY3D",
+      "name": "FENGYUN 3D",
+      "noradId": 43010,
+      "cosparId": "2017-072A",
+      "segment": "PAY",
+      "country": "PRC",
+      "operator": "CMA / NSMC",
+      "rcs": "LARGE",
+      "launchDate": "2017-11-14T18:35:00Z",
+      "launchSite": "TSLC",
+      "opsStatus": "OPERATIONAL",
+      "tleAgeHours": 9,
+      "elements": {
+        "epoch": "2026-10-04T21:00:00Z",
+        "smaKm": 7186.74,
+        "ecc": 0.00024978,
+        "incDeg": 99.0308,
+        "raanDeg": 59.28488,
+        "argpDeg": 356.20044,
+        "meanAnomalyDeg": 14.00513
+      },
+      "envelope": null
     }
   ],
   "lists": [
@@ -728,7 +752,8 @@
         "C1408-DEB-B",
         "IRIDIUM33-DEB",
         "INSP-1",
-        "COSMOS-2612"
+        "COSMOS-2612",
+        "FY3D"
       ]
     },
     {
