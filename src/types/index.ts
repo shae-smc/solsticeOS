@@ -272,6 +272,8 @@ export interface ThreatWindow {
   /** Latest arrival across the window's sequences. */
   end: IsoUtc
   transferType: 'PHASING' | 'LAMBERT'
+  /** Kinds of threat the window poses, primary first. */
+  threatTypes: HazardType[]
   reasoning: string | null
   sequenceIds: string[]
 }

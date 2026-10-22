@@ -8,6 +8,10 @@
       "start": "2026-10-01T07:00:00Z",
       "end": "2026-10-07T09:02:40Z",
       "transferType": "PHASING",
+      "threatTypes": [
+        "RPO_APPROACH",
+        "LOITERING"
+      ],
       "reasoning": "Simulated inspector co-planar with CARTOSAT-3, 6 km lower and 22° behind. A two-burn phasing transfer brings it to a 2 km standoff for close-range imaging of the asset.",
       "sequenceIds": [
         "TW-CARTOSAT-INSP1-S01",
@@ -112,6 +116,10 @@
       "start": "2026-10-01T07:00:00Z",
       "end": "2026-10-07T01:00:37Z",
       "transferType": "PHASING",
+      "threatTypes": [
+        "RPO_APPROACH",
+        "LOITERING"
+      ],
       "reasoning": "Simulated inspector in RISAT-2B's plane, 3 km lower and 25° behind. Not on any opposed list yet: add it to one to have Orbital Rakshak screen the pair.",
       "sequenceIds": [
         "TW-RISAT2B-INSP2-S01",
@@ -216,6 +224,9 @@
       "start": "2026-10-01T07:00:00Z",
       "end": "2026-10-09T14:02:55Z",
       "transferType": "PHASING",
+      "threatTypes": [
+        "RPO_APPROACH"
+      ],
       "reasoning": "Indian ↔ Indian: ISRO's SPADEX chaser trailing its target by 24°. Placed on an opposed list for the demo to show that any proximity-capable object is screened, including our own fleet.",
       "sequenceIds": [
         "TW-SPADEX-S01",

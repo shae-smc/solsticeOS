@@ -11,7 +11,7 @@
 //
 // Run: node scripts/generate-threats.ts   (Node 24+, native TypeScript type stripping)
 import { readFileSync, writeFileSync } from 'node:fs'
-import type { InterceptSequence, ManeuverStep, OrbitalElements, RSOObject, ThreatWindow } from '../src/types/index.ts'
+import type { HazardType, InterceptSequence, ManeuverStep, OrbitalElements, RSOObject, ThreatWindow } from '../src/types/index.ts'
 import { circularSpeedKmS, elementsAt, j2Rates, propagateEci } from '../src/lib/orbit.ts'
 
 const CATALOG = 'src/data/catalog.json'
@@ -87,6 +87,8 @@ interface ChaserSpec {
   burn1Hours: number[]
   standoffKm: number
   windowId: string
+  /** Kinds of threat the window poses, primary first. */
+  threatTypes: HazardType[]
   reasoning: string
 }
 
@@ -119,6 +121,7 @@ const CHASERS: ChaserSpec[] = [
     burn1Hours: every(1, 46, 1.5),
     standoffKm: 2,
     windowId: 'TW-CARTOSAT-INSP1',
+    threatTypes: ['RPO_APPROACH', 'LOITERING'],
     reasoning:
       'Simulated inspector co-planar with CARTOSAT-3, 6 km lower and 22° behind. A two-burn phasing ' +
       'transfer brings it to a 2 km standoff for close-range imaging of the asset.',
@@ -132,6 +135,7 @@ const CHASERS: ChaserSpec[] = [
     burn1Hours: every(1, 46, 1.5),
     standoffKm: 2,
     windowId: 'TW-RISAT2B-INSP2',
+    threatTypes: ['RPO_APPROACH', 'LOITERING'],
     reasoning:
       'Simulated inspector in RISAT-2B\'s plane, 3 km lower and 25° behind. Not on any opposed list ' +
       'yet: add it to one to have Orbital Rakshak screen the pair.',
@@ -159,6 +163,7 @@ const CHASERS: ChaserSpec[] = [
     burn1Hours: every(1, 46, 1.5),
     standoffKm: 1,
     windowId: 'TW-SPADEX',
+    threatTypes: ['RPO_APPROACH'],
     reasoning:
       'Indian ↔ Indian: ISRO\'s SPADEX chaser trailing its target by 24°. Placed on an opposed list for ' +
       'the demo to show that any proximity-capable object is screened, including our own fleet.',
@@ -319,6 +324,7 @@ for (const spec of CHASERS) {
     start: iso(Math.min(...starts)),
     end: iso(Math.max(...ends)),
     transferType: 'PHASING',
+    threatTypes: spec.threatTypes,
     reasoning: spec.reasoning,
     sequenceIds: solved.map((s) => s.id),
   })

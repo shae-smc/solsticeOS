@@ -13,6 +13,7 @@ import {
   threatWindowById,
   threatWindows,
 } from '.'
+import { HAZARDS } from '@/lib/hazards'
 import { maneuveredElementsAt } from '@/lib/maneuver'
 import { propagateEci } from '@/lib/orbit'
 import { severityBand } from '@/lib/severity'
@@ -125,6 +126,13 @@ describe('threat windows', () => {
       for (const s of sequencesOfWindow.get(w.id)!) expect(s.windowId).toBe(w.id)
     }
     expect(new Set(threatWindows.flatMap((w) => w.sequenceIds))).toEqual(new Set(interceptSequences.map((s) => s.id)))
+  })
+
+  it('name at least one known threat type each', () => {
+    for (const w of threatWindows) {
+      expect(w.threatTypes.length, w.id).toBeGreaterThan(0)
+      for (const type of w.threatTypes) expect(HAZARDS[type], `${w.id} ${type}`).toBeDefined()
+    }
   })
 
   it('span their sequences from the first Burn 1 to the last arrival', () => {
