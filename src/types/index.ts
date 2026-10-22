@@ -214,6 +214,31 @@ export interface SeverityLogEntry {
 }
 
 // ---------------------------------------------------------------------------
+// Hazard taxonomy
+// ---------------------------------------------------------------------------
+
+/** Pipeline modules a hazard is detected and scored in (M1 tracking … M8 compliance). */
+export type HazardModule = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M8'
+
+/** Every hazard class Orbital Rakshak screens for; see src/lib/hazards.ts for the routing. */
+export type HazardType =
+  | 'CONJUNCTION'
+  | 'CLOSE_APPROACH'
+  | 'RPO_APPROACH'
+  | 'LOITERING'
+  | 'UNANNOUNCED_MANEUVER'
+  | 'FRAGMENTATION'
+  | 'NEW_LAUNCH'
+  | 'DECAYING_OBJECT'
+  | 'SMALL_DEBRIS'
+  | 'GEOMAGNETIC_STORM'
+  | 'SOLAR_RADIATION_STORM'
+  | 'SAA_PASS'
+  | 'ORBIT_DECAY_EOL'
+  | 'PLAN_DEVIATION'
+  | 'CONFLICTING_MANEUVERS'
+
+// ---------------------------------------------------------------------------
 // Threat windows (rendezvous / proximity operations)
 // ---------------------------------------------------------------------------
 
