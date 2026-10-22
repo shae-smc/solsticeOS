@@ -31,6 +31,13 @@ const HOME_VIEW = { lat: 18, lng: 79, altitude: 2.6 }
  */
 const INERTIAL_REF_MS = DEMO_EPOCH_MS
 const DEG = Math.PI / 180
+
+/** The home view over India, wherever the Earth has turned to in the inertial view. */
+function homeView(frame: GlobeFrame) {
+  if (frame !== 'inertial') return HOME_VIEW
+  const timeMs = selectDisplayTimeMs(useMissionStore.getState())
+  return { ...HOME_VIEW, lng: HOME_VIEW.lng + earthSpinDeg(INERTIAL_REF_MS, timeMs) }
+}
 const OVERLAY_REFRESH_MS = 250
 /** Objects on no list stay neutral white; listed ones take their category colour. */
 const UNLISTED_HEX = '#ffffff'
@@ -346,7 +353,7 @@ export function GlobeViewport() {
       .htmlAltitude('alt')
       .htmlElement((d: object) => (d as HtmlDatum).el)
       .htmlTransitionDuration(0)
-      .pointOfView(HOME_VIEW)
+      .pointOfView(homeView(frameRef.current))
     // Headlight: keep the lit hemisphere facing the viewer wherever the camera orbits.
     const headlight = new THREE.DirectionalLight(0xffffff, 0.9 * Math.PI)
     globe.lights([new THREE.AmbientLight(0xcccccc, 0.65 * Math.PI), headlight])
@@ -581,7 +588,7 @@ export function GlobeViewport() {
       <SpeedControl />
       <button
         type="button"
-        onClick={() => globeRef.current?.pointOfView(HOME_VIEW, 1000)}
+        onClick={() => globeRef.current?.pointOfView(homeView(frame), 1000)}
         className="absolute right-3 top-3 flex items-center gap-1.5 rounded-lg border border-glass-border bg-glass px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-secondary backdrop-blur-md transition-colors duration-100 ease-out hover:text-primary light:shadow-lg"
       >
         <LocateFixed className="size-3.5" /> Reset view
