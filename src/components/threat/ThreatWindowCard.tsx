@@ -4,7 +4,7 @@ import { rsoById, sequencesOfWindow } from '@/data'
 import { cn } from '@/lib/cn'
 import { formatHms, formatUtc, OBJECT_TYPE, SEVERITY_HEX } from '@/lib/format'
 import { isSequenceOpen, sequenceMetrics } from '@/lib/threat'
-import { CategoryChip, SeverityBadge } from '@/components/ui/Badge'
+import { CategoryChip, HazardChips, SeverityBadge } from '@/components/ui/Badge'
 import { Field, Section } from '@/components/ui/Section'
 import { useCategories } from '@/hooks/useCategories'
 import { useDisplayMinute } from '@/hooks/useSeverity'
@@ -158,6 +158,11 @@ export function ThreatWindowCard({ window }: { window: ThreatWindow }) {
       <div className="grid grid-cols-2 gap-3 border-t border-border px-3 py-3">
         <Party object={target} side="target" />
         <Party object={opposed} side="opposed" />
+      </div>
+
+      <div className="border-t border-border px-3 py-3">
+        <div className="mb-1.5 text-[9px] font-medium uppercase tracking-widest text-tertiary">Threat type</div>
+        <HazardChips types={window.threatTypes} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 border-t border-border px-3 py-3">

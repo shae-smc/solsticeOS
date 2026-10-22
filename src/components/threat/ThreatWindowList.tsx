@@ -4,7 +4,7 @@ import { rsoById, sequencesOfWindow } from '@/data'
 import { cn } from '@/lib/cn'
 import { formatHms, formatUtc } from '@/lib/format'
 import { isSequenceOpen, sequenceMetrics } from '@/lib/threat'
-import { SeverityBadge } from '@/components/ui/Badge'
+import { HazardChips, SeverityBadge } from '@/components/ui/Badge'
 import { useDisplayMinute } from '@/hooks/useSeverity'
 import { useWindowRating } from '@/hooks/useThreat'
 import { selectWindowRating, useMissionStore } from '@/store/missionStore'
@@ -60,6 +60,7 @@ function ThreatWindowRow({ window }: { window: ThreatWindow }) {
         <div className="min-w-0">
           <div className="truncate text-[12px] font-medium text-owned">{rsoById.get(window.targetId)?.name}</div>
           <div className="truncate text-[12px] font-medium text-opposed">{rsoById.get(window.opposedId)?.name}</div>
+          <HazardChips types={window.threatTypes} className="mt-1" />
         </div>
         <div className="text-right font-mono text-[10px] leading-4 tabular-nums text-tertiary">
           <div className="font-medium text-primary">{formatUtc(Date.parse(window.start), false)}</div>

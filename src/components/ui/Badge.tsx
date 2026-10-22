@@ -1,8 +1,9 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { cn } from '@/lib/cn'
 import { severityBand } from '@/lib/severity'
-import type { RsoListCategory, SeverityBand } from '@/types'
+import type { HazardType, RsoListCategory, SeverityBand } from '@/types'
 import { CATEGORY_LABEL } from '@/lib/format'
+import { describeRoute, HAZARDS } from '@/lib/hazards'
 
 const CATEGORY_CLASS: Record<RsoListCategory, string> = {
   owned: 'border-owned/60 text-owned',
@@ -20,6 +21,37 @@ export function CategoryChip({ category, className }: { category: RsoListCategor
       )}
     >
       {CATEGORY_LABEL[category]}
+    </span>
+  )
+}
+
+/**
+ * What kind of threat something poses. The primary type is accented; hovering gives the full
+ * name, the modules that score it and a one-line definition.
+ */
+export function HazardChip({ type, primary = false }: { type: HazardType; primary?: boolean }) {
+  const hazard = HAZARDS[type]
+  return (
+    <span
+      title={`${hazard.label} · ${describeRoute(hazard)}
+${hazard.description}`}
+      className={cn(
+        'inline-flex items-center rounded-md border px-1.5 py-0.5 text-[9px] font-medium uppercase leading-none tracking-wider',
+        primary ? 'border-accent/40 bg-accent-muted text-accent' : 'border-border text-tertiary',
+      )}
+    >
+      {hazard.short}
+    </span>
+  )
+}
+
+/** A window's threat types, primary first. */
+export function HazardChips({ types, className }: { types: HazardType[]; className?: string }) {
+  return (
+    <span className={cn('flex flex-wrap gap-1', className)}>
+      {types.map((type, i) => (
+        <HazardChip key={type} type={type} primary={i === 0} />
+      ))}
     </span>
   )
 }
