@@ -9,7 +9,7 @@ import { Field, Section } from '@/components/ui/Section'
 import { useCategories } from '@/hooks/useCategories'
 import { useDisplayMinute } from '@/hooks/useSeverity'
 import { useWindowRating } from '@/hooks/useThreat'
-import { useMissionStore } from '@/store/missionStore'
+import { selectActiveIntercept, selectDisplayTimeMs, useMissionStore } from '@/store/missionStore'
 import type { InterceptSequence, RSOObject, ThreatWindow } from '@/types'
 import { BAND_TEXT } from './ThreatBreakdown'
 
@@ -122,6 +122,15 @@ export function ThreatWindowCard({ window }: { window: ThreatWindow }) {
   const openRatingModal = useMissionStore((s) => s.openRatingModal)
   const target = rsoById.get(window.targetId)!
   const opposed = rsoById.get(window.opposedId)!
+  // Once every Burn 1 has passed the window no longer rates, but a chaser that arrived is
+  // still sitting on the target: say so rather than just "Closed".
+  const holding = useMissionStore((s) => {
+    const intercept = selectActiveIntercept(s)
+    if (!intercept || intercept.windowId !== window.id) return false
+    const t = selectDisplayTimeMs(s)
+    const [, , , burn2, hold] = intercept.steps
+    return t >= Date.parse(burn2.end) && t <= Date.parse(hold.end)
+  })
   const color = rating ? SEVERITY_HEX[rating.band] : 'transparent'
   const start = Date.parse(window.start)
   const end = Date.parse(window.end)
@@ -138,10 +147,14 @@ export function ThreatWindowCard({ window }: { window: ThreatWindow }) {
           <SeverityBadge index={rating?.rating ?? 0} size="lg" muted={!rating} />
           <div>
             <div className={cn('font-mono text-lg font-semibold tabular-nums', rating ? BAND_TEXT[rating.band] : 'text-tertiary')}>
-              {rating ? `${Math.round(rating.rating)}/100` : 'Closed'}
+              {rating ? `${Math.round(rating.rating)}/100` : holding ? 'Holding station' : 'Closed'}
             </div>
             <div className="text-[10px] font-medium uppercase tracking-wider text-tertiary">
-              {rating ? 'Window threat rating · tap to explain' : 'Every Burn 1 has passed'}
+              {rating
+                ? 'Window threat rating · tap to explain'
+                : holding
+                  ? `${opposed.name} has arrived and is shadowing the target`
+                  : 'Every Burn 1 has passed'}
             </div>
           </div>
         </button>
