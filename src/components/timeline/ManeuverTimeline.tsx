@@ -15,8 +15,9 @@ import {
 } from '@/store/missionStore'
 import type { ConjunctionEvent, ManeuverPhase, ManeuverSequence } from '@/types'
 
-/** "Play plan" from live starts this long before Burn 1. */
+/** "Play plan" from live starts this long before Burn 1 and stops this long after Burn 2. */
 const PLAYBACK_LEAD_MS = 30 * 60_000
+const PLAYBACK_TAIL_MS = 60 * 60_000
 
 const PHASE_CLASS: Record<ManeuverPhase, string> = {
   COAST_MEAN_PRE: 'bg-elevated text-secondary',
@@ -193,14 +194,17 @@ export function Controls({ sequence }: { sequence: StepPlan }) {
   const [playing, setPlaying] = useState(false)
 
   // Plays in simulation time at the globe's speed setting, read every frame so it can be
-  // changed mid-play. From live, it starts just before Burn 1: the coast before it is idle.
+  // changed mid-play. It runs from just before Burn 1 to shortly after Burn 2: the coasts
+  // either side are idle and can last days.
   useEffect(() => {
     if (!playing) return
     let frame = 0
     let last = performance.now()
-    const end = Date.parse(sequence.steps.at(-1)!.end)
-    const burn1 = sequence.steps.find((step) => isBurn(step.phase))
-    const cue = Math.max(Date.parse(sequence.steps[0]!.start), Date.parse(burn1?.start ?? sequence.steps[0]!.start) - PLAYBACK_LEAD_MS)
+    const burns = sequence.steps.filter((step) => isBurn(step.phase))
+    const planStart = Date.parse(sequence.steps[0]!.start)
+    const planEnd = Date.parse(sequence.steps.at(-1)!.end)
+    const cue = burns[0] ? Math.max(planStart, Date.parse(burns[0].start) - PLAYBACK_LEAD_MS) : planStart
+    const end = burns.at(-1) ? Math.min(planEnd, Date.parse(burns.at(-1)!.end) + PLAYBACK_TAIL_MS) : planEnd
     const s = useMissionStore.getState()
     let t = s.scrubTimeMs ?? Math.max(cue, s.simTimeMs)
     if (t >= end) t = cue
