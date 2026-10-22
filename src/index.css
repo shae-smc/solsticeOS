@@ -58,7 +58,7 @@
   --color-on-accent: #08131c;
 
   /* RSO list categories (Solstice OS): Owned blue, Allied green, Opposed red. */
-  --color-owned: #3f7fb0;
+  --color-owned: #3b82f6;
   --color-allied: #3e9b6f;
   --color-opposed: #d14f4f;
 
@@ -135,7 +135,7 @@
   --color-accent-glow: rgb(47 111 168 / 0.12);
   --color-on-accent: #ffffff;
 
-  --color-owned: #2c5f87;
+  --color-owned: #2563eb;
   --color-allied: #2a7551;
   --color-opposed: #a83636;
 
