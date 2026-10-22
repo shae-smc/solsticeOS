@@ -39,7 +39,48 @@ const circular = (smaKm: number, incDeg: number, raanDeg: number, argpDeg: numbe
   meanAnomalyDeg,
 })
 
+/** Mean elements from a CelesTrak GP record (TLE mean motion in rev/day). */
+const fromGp = (gp: typeof ICEYE_X36_GP): OrbitalElements => {
+  const n = (gp.MEAN_MOTION * 2 * Math.PI) / 86_400
+  return {
+    epoch: `${gp.EPOCH.slice(0, 19)}Z`,
+    smaKm: round(Math.cbrt(398600.4418 / n ** 2), 3),
+    ecc: gp.ECCENTRICITY,
+    incDeg: gp.INCLINATION,
+    raanDeg: gp.RA_OF_ASC_NODE,
+    argpDeg: gp.ARG_OF_PERICENTER,
+    meanAnomalyDeg: gp.MEAN_ANOMALY,
+  }
+}
+
+// CelesTrak GP for NORAD 59103, fetched 2026-10-22.
+const ICEYE_X36_GP = {
+  EPOCH: '2026-10-21T07:19:02.618688',
+  MEAN_MOTION: 15.07843995,
+  ECCENTRICITY: 0.00046118,
+  INCLINATION: 97.8535,
+  RA_OF_ASC_NODE: 74.8455,
+  ARG_OF_PERICENTER: 247.1663,
+  MEAN_ANOMALY: 112.9077,
+}
+
 const NEW_TARGETS: RSOObject[] = [
+  {
+    id: 'ICEYE-X36',
+    name: 'ICEYE-X36',
+    noradId: 59103,
+    cosparId: '2024-043F',
+    segment: 'PAY',
+    country: 'FIN',
+    operator: 'ICEYE',
+    rcs: 'SMALL',
+    launchDate: '2024-03-04T22:05:00Z',
+    launchSite: 'VSFB',
+    opsStatus: 'OPERATIONAL',
+    tleAgeHours: 6,
+    elements: fromGp(ICEYE_X36_GP),
+    envelope: { deltaVBudgetMps: 100, deltaVRemainingMps: 72, thrustN: 0.02, ispS: 1100, massKg: 100, propulsion: 'ELECTRIC' },
+  },
   {
     id: 'RISAT-2B',
     name: 'RISAT-2B',
@@ -86,6 +127,8 @@ interface ChaserSpec {
   /** Burn 1 offsets from the demo epoch, hours. */
   burn1Hours: number[]
   standoffKm: number
+  /** Hold station until this instant rather than for the default six hours. */
+  holdUntil?: string
   windowId: string
   /** Kinds of threat the window poses, primary first. */
   threatTypes: HazardType[]
@@ -167,6 +210,38 @@ const CHASERS: ChaserSpec[] = [
     reasoning:
       'Indian ↔ Indian: ISRO\'s SPADEX chaser trailing its target by 24°. Placed on an opposed list for ' +
       'the demo to show that any proximity-capable object is screened, including our own fleet.',
+  },
+  {
+    object: {
+      id: 'COSMOS-2612',
+      name: 'COSMOS 2612',
+      noradId: 68762,
+      cosparId: '2026-083H',
+      segment: 'PAY',
+      country: 'CIS',
+      operator: null,
+      rcs: 'SMALL',
+      launchDate: null,
+      launchSite: null,
+      opsStatus: 'OPERATIONAL',
+      tleAgeHours: 6,
+      // Not public: an assumed small inspector envelope.
+      envelope: { deltaVBudgetMps: 200, deltaVRemainingMps: 150, thrustN: 5, ispS: 220, massKg: 300, propulsion: 'UNKNOWN' },
+    },
+    targetId: 'ICEYE-X36',
+    dropKm: 1,
+    phaseDeg: 18,
+    phasingDropsKm: [1.5, 2, 2.5],
+    burn1Hours: every(297, 342, 1.5),
+    standoffKm: 0.5,
+    holdUntil: '2026-10-19T12:00:00Z',
+    windowId: 'TW-ICEYE-K2612',
+    threatTypes: ['RPO_APPROACH', 'LOITERING', 'UNANNOUNCED_MANEUVER'],
+    reasoning:
+      "Real event, reconstructed. LeoLabs tracked Kosmos 2612 matching ICEYE-X36's orbit and shadowing it " +
+      'from 15 to 19 October 2026, holding a few hundred metres ahead and behind with small unannounced ' +
+      'burns (closest near 01:35 UTC on 18 October). ICEYE-X36 flies its CelesTrak elements and Kosmos ' +
+      '2612 shares its plane; the phasing burns that bring it in are modelled to match, not observed.',
   },
 ]
 
@@ -257,7 +332,7 @@ function solveSequence(spec: ChaserSpec, chaser: OrbitalElements, target: Orbita
       step('BURN_1', 'Burn 1', burn1Ms, burn1Ms + b1Dur, dv1, 'NUMERICAL'),
       step('COAST_EPHEMERIS', 'Coast (phasing)', burn1Ms + b1Dur, burn2Ms, 0, 'NUMERICAL'),
       step('BURN_2', 'Burn 2', burn2Ms, burn2Ms + b2Dur, dv2, 'NUMERICAL'),
-      step('COAST_MEAN_POST', 'Station-keeping', burn2Ms + b2Dur, burn2Ms + b2Dur + 6 * HOUR),
+      step('COAST_MEAN_POST', 'Station-keeping', burn2Ms + b2Dur, Math.max(burn2Ms + b2Dur + 6 * HOUR, Date.parse(spec.holdUntil ?? '') || 0)),
     ],
   }
   return sequence
@@ -335,6 +410,7 @@ for (const spec of CHASERS) {
   const transits = solved.map((s) => (Date.parse(s.steps[3].start) - Date.parse(s.steps[1].start)) / HOUR)
   console.log(
     `${spec.windowId}: ${solved.length} sequences, dv ${Math.min(...dvs)}-${Math.max(...dvs)} m/s, ` +
+      `arrive ${iso(Math.min(...ends))}..${iso(Math.max(...ends))}, ` +
       `transit ${Math.min(...transits).toFixed(1)}-${Math.max(...transits).toFixed(1)} h, worst standoff ${worst} km`,
   )
 }
@@ -348,7 +424,7 @@ const addMembers = (listId: string, ids: string[]) => {
   list.memberIds = [...new Set([...list.memberIds, ...ids])]
 }
 addMembers('LST-IND', ['RISAT-2B', 'SDX02'])
-addMembers('LST-UNCOOP', ['INSP-1'])
+addMembers('LST-UNCOOP', ['INSP-1', 'COSMOS-2612'])
 const upsertList = (list: ListJson) => {
   const i = lists.findIndex((l) => l.id === list.id)
   if (i >= 0) lists[i] = list

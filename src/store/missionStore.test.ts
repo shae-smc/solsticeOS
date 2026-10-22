@@ -110,11 +110,11 @@ describe('threat windows', () => {
   })
 
   it('lists established windows and closes the open one when its chaser leaves every opposed list', () => {
-    expect(selectEstablishedWindows(state()).map((w) => w.id).sort()).toEqual(['TW-CARTOSAT-INSP1', 'TW-SPADEX'])
+    expect(selectEstablishedWindows(state()).map((w) => w.id).sort()).toEqual(['TW-CARTOSAT-INSP1', 'TW-ICEYE-K2612', 'TW-SPADEX'])
     state().selectThreatWindow('TW-SPADEX')
     state().removeListMember('LST-SPADEX-RED', 'SDX01')
     expect(state().activeThreatWindowId).toBeNull()
-    expect(selectEstablishedWindows(state()).map((w) => w.id)).toEqual(['TW-CARTOSAT-INSP1'])
+    expect(selectEstablishedWindows(state()).map((w) => w.id).sort()).toEqual(['TW-CARTOSAT-INSP1', 'TW-ICEYE-K2612'])
   })
 
   it('rates objects as threatened or threatening, by list scope', () => {

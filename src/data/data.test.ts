@@ -172,6 +172,19 @@ describe('threat windows', () => {
     }
   })
 
+  it('replay Kosmos 2612 shadowing ICEYE-X36 over the reported 15-19 October', () => {
+    const chaser = rsoById.get('COSMOS-2612')!.elements
+    const target = rsoById.get('ICEYE-X36')!.elements
+    const closest = Date.parse('2026-10-18T01:35:00Z')
+    for (const s of sequencesOfWindow.get('TW-ICEYE-K2612')!) {
+      expect(s.steps[3].end < '2026-10-17', s.id).toBe(true)
+      expect(s.steps[4].end, s.id).toBe('2026-10-19T12:00:00Z')
+      const c = propagateEci(maneuveredElementsAt(chaser, s, closest), closest)
+      const t = propagateEci(target, closest)
+      expect(Math.hypot(c.x - t.x, c.y - t.y, c.z - t.z), s.id).toBeLessThan(1)
+    }
+  })
+
   it('rate Cartosat-3 red, RISAT-2B orange and SPADEX yellow at the demo epoch', () => {
     const rating = (id: string) => rateWindow(sequencesOfWindow.get(id)!, DEMO_EPOCH_MS)!.rating
     expect(severityBand(rating('TW-CARTOSAT-INSP1'))).toBe('red')
