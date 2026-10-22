@@ -106,7 +106,7 @@ export function gmstRad(timeMs: number): number {
 
 /**
  * Degrees the Earth turns between two instants, wrapped to [-180, 180). An inertial view
- * counter-rotates the Earth-fixed camera by this so the orbit planes hold still on screen.
+ * turns the Earth by this while the orbit planes hold still on screen.
  */
 export function earthSpinDeg(fromMs: number, toMs: number): number {
   const deg = (gmstRad(toMs) - gmstRad(fromMs)) / DEG
