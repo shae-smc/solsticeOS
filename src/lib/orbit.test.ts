@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEMO_EPOCH_MS, rsoById } from '@/data'
 import type { OrbitalElements } from '@/types'
-import { EARTH_RADIUS_KM, elementsAt, geoAt, gmstRad, orbitalPeriodS, orbitRing, propagateEci } from './orbit'
+import { EARTH_RADIUS_KM, earthSpinDeg, elementsAt, geoAt, gmstRad, orbitalPeriodS, orbitRing, propagateEci } from './orbit'
 
 const circular: OrbitalElements = {
   epoch: '2026-10-01T00:00:00Z',
@@ -42,6 +42,13 @@ describe('propagateEci', () => {
 describe('geodetic conversion', () => {
   it('matches GMST at J2000 noon', () => {
     expect(gmstRad(Date.parse('2000-01-01T12:00:00Z')) / (Math.PI / 180)).toBeCloseTo(280.4606, 3)
+  })
+
+  it('spins the Earth ~15°/h, wrapped and signed', () => {
+    expect(earthSpinDeg(epochMs, epochMs + 3_600_000)).toBeCloseTo(15.041, 3)
+    expect(earthSpinDeg(epochMs + 3_600_000, epochMs)).toBeCloseTo(-15.041, 3)
+    // 13 h is 195.5°, which reads as the shorter -164.5° the other way round.
+    expect(earthSpinDeg(epochMs, epochMs + 13 * 3_600_000)).toBeCloseTo(195.53 - 360, 1)
   })
 
   it('reaches the inclination-limited latitude on a polar-ish orbit', () => {

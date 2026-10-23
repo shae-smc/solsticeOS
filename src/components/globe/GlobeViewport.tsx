@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import Globe, { type GlobeInstance } from 'globe.gl'
 import * as THREE from 'three'
-import { Globe2, LocateFixed, Map as MapIcon, Orbit } from 'lucide-react'
-import { rsoById } from '@/data'
+import { Axis3d, Earth, Globe2, LocateFixed, Map as MapIcon, Orbit } from 'lucide-react'
+import { DEMO_EPOCH_MS, rsoById } from '@/data'
 import { cn } from '@/lib/cn'
 import { CATEGORY_HEX, CATEGORY_LABEL, SEVERITY_HEX } from '@/lib/format'
 import { maneuveredElementsAt } from '@/lib/maneuver'
-import { EARTH_RADIUS_KM, geoAt, orbitRing, type GeoPoint } from '@/lib/orbit'
+import { EARTH_RADIUS_KM, earthSpinDeg, geoAt, orbitRing, type GeoPoint } from '@/lib/orbit'
 import {
   selectActiveConjunction,
   selectActiveIntercept,
@@ -21,9 +21,23 @@ import {
   type SpeedMultiplier,
 } from '@/store/missionStore'
 import type { OrbitalElements, RSOObject, RsoListCategory } from '@/types'
-import { buildInterceptOverlay, buildPlanOverlay, type OverlayMarker, type OverlayPath } from './planOverlay'
+import { buildInterceptOverlay, buildPlanOverlay, inertialLng, inertialPath, type OverlayMarker, type OverlayPath } from './planOverlay'
 
 const HOME_VIEW = { lat: 18, lng: 79, altitude: 2.6 }
+/**
+ * Instant the inertial view is drawn at: objects and orbits sit where they are in space,
+ * expressed against the Earth's orientation at this sidereal time, and the Earth turns away
+ * from that orientation as time runs.
+ */
+const INERTIAL_REF_MS = DEMO_EPOCH_MS
+const DEG = Math.PI / 180
+
+/** The home view over India, wherever the Earth has turned to in the inertial view. */
+function homeView(frame: GlobeFrame) {
+  if (frame !== 'inertial') return HOME_VIEW
+  const timeMs = selectDisplayTimeMs(useMissionStore.getState())
+  return { ...HOME_VIEW, lng: HOME_VIEW.lng + earthSpinDeg(INERTIAL_REF_MS, timeMs) }
+}
 const OVERLAY_REFRESH_MS = 250
 /** Objects on no list stay neutral white; listed ones take their category colour. */
 const UNLISTED_HEX = '#ffffff'
@@ -52,6 +66,18 @@ const withAlpha = (hex: string, alpha: number) => {
 }
 
 export type GlobeSurface = 'physical' | 'wireframe' | 'political'
+
+/**
+ * Inertial (ECI): the camera, stars and orbit planes hold still and the Earth turns with
+ * sidereal time underneath. Earth-fixed: the Earth holds still and the planes sweep round
+ * ~15°/h, which reads as a RAAN change to anyone used to thinking in elements.
+ */
+export type GlobeFrame = 'inertial' | 'earth-fixed'
+
+const FRAME_OPTIONS: { value: GlobeFrame; label: string; title: string; icon: typeof Globe2 }[] = [
+  { value: 'inertial', label: 'Inertial', title: 'Orbit planes fixed, Earth turns underneath', icon: Axis3d },
+  { value: 'earth-fixed', label: 'Earth-fixed', title: 'Camera fixed over the ground', icon: Earth },
+]
 
 const SURFACE_OPTIONS: { value: GlobeSurface; label: string; icon: typeof Globe2 }[] = [
   { value: 'physical', label: 'Physical', icon: Globe2 },
@@ -102,6 +128,22 @@ interface SatDatum {
   lat: number
   lng: number
   alt: number
+}
+
+/**
+ * The parts of the three-globe scene that are the Earth itself: the surface layer (mesh,
+ * graticules, atmosphere) and the country polygons. The inertial view turns only these.
+ */
+function earthLayerGroups(globe: GlobeInstance): THREE.Object3D[] {
+  let surface: THREE.Object3D | undefined
+  globe.scene().traverse((o) => {
+    if ((o as THREE.Mesh).material === globe.globeMaterial()) surface = o
+  })
+  // Mesh → globe group → surface layer group, the first child of the three-globe root. The
+  // polygons layer is the sixth, in three-globe's fixed layer order.
+  const layer = surface?.parent?.parent
+  const polygons = layer?.parent?.children[5]
+  return [layer, polygons].filter((g): g is THREE.Object3D => g != null)
 }
 
 /** Anything drawn as an HTML label: object names and plan markers share one layer. */
@@ -228,6 +270,9 @@ export function GlobeViewport() {
   const containerRef = useRef<HTMLDivElement>(null)
   const globeRef = useRef<GlobeInstance | null>(null)
   const [surface, setSurface] = useState<GlobeSurface>('physical')
+  const [frame, setFrame] = useState<GlobeFrame>('inertial')
+  const frameRef = useRef(frame)
+  frameRef.current = frame
 
   useEffect(() => {
     const container = containerRef.current
@@ -308,12 +353,19 @@ export function GlobeViewport() {
       .htmlAltitude('alt')
       .htmlElement((d: object) => (d as HtmlDatum).el)
       .htmlTransitionDuration(0)
-      .pointOfView(HOME_VIEW)
+      .pointOfView(homeView(frameRef.current))
     // Headlight: keep the lit hemisphere facing the viewer wherever the camera orbits.
     const headlight = new THREE.DirectionalLight(0xffffff, 0.9 * Math.PI)
     globe.lights([new THREE.AmbientLight(0xcccccc, 0.65 * Math.PI), headlight])
     globe.controls().autoRotate = false
     globeRef.current = globe
+    // globe.gl adds three-globe to the scene on a deferred update, so look the Earth up lazily.
+    let earthLayers: THREE.Object3D[] = []
+
+    // A ground point at `atMs`, placed in the current frame: inertial points keep where they
+    // were in space, Earth-fixed points stay over the ground.
+    const toFrame = (p: GeoPoint, atMs: number): GeoPoint =>
+      frameRef.current === 'inertial' ? { ...p, lng: inertialLng(p.lng, atMs, INERTIAL_REF_MS) } : p
 
     const resize = new ResizeObserver(([entry]) => {
       if (!entry) return
@@ -338,7 +390,7 @@ export function GlobeViewport() {
         return [
           {
             id,
-            points: orbitRing(effectiveElements(s, object, timeMs), timeMs),
+            points: orbitRing(effectiveElements(s, object, timeMs), timeMs).map((p) => toFrame(p, timeMs)),
             color: withAlpha(globeHex(s, id), id === s.selectedRsoId ? 0.95 : 0.7),
             stroke: id === s.selectedRsoId ? 0.9 : 0.6,
             dash: 1,
@@ -367,16 +419,34 @@ export function GlobeViewport() {
 
     let frame = 0
     let lastOverlayAt = -Infinity
+    let appliedSpinDeg = 0
+    let appliedFrame = frameRef.current
     let rings: OverlayPath[] = []
     const render = (now: number) => {
       headlight.position.copy(globe.camera().position)
       const s = useMissionStore.getState()
       const timeMs = selectDisplayTimeMs(s)
       const attention = attentionActive(s)
+      const inertial = frameRef.current === 'inertial'
+
+      // Inertial: the Earth turns by the sidereal angle since the reference instant while
+      // everything in orbit is drawn where it is in space. Earth-fixed: nothing turns.
+      const spinDeg = inertial ? earthSpinDeg(INERTIAL_REF_MS, timeMs) : 0
+      if (earthLayers.length === 0) earthLayers = earthLayerGroups(globe)
+      for (const layer of earthLayers) layer.rotation.y = spinDeg * DEG
+      if (frameRef.current !== appliedFrame) {
+        // Swing the camera with the Earth on a frame switch so the same ground stays in view,
+        // and redraw the overlays in the new frame straight away.
+        const pov = globe.pointOfView()
+        globe.pointOfView({ ...pov, lng: pov.lng + spinDeg - appliedSpinDeg })
+        appliedFrame = frameRef.current
+        lastOverlayAt = -Infinity
+      }
+      appliedSpinDeg = spinDeg
 
       const sats = trackedSats(s)
       for (const sat of sats) {
-        const geo = geoAt(effectiveElements(s, sat.object, timeMs), timeMs)
+        const geo = toFrame(geoAt(effectiveElements(s, sat.object, timeMs), timeMs), timeMs)
         sat.lat = geo.lat
         sat.lng = geo.lng
         sat.alt = toAlt(geo.altKm)
@@ -411,7 +481,8 @@ export function GlobeViewport() {
         syncLabels(s.trackedIds)
         syncPlan(s)
         rings = ringsFor(s, timeMs)
-        globe.pathsData([...rings, ...(plan?.paths ?? [])])
+        const planPaths = plan?.paths ?? []
+        globe.pathsData([...rings, ...(inertial ? planPaths.map((p) => inertialPath(p, INERTIAL_REF_MS)) : planPaths)])
       }
       for (const label of labels.values()) {
         const sat = satById.get(label.id)
@@ -419,6 +490,9 @@ export function GlobeViewport() {
         label.lat = sat.lat
         label.lng = sat.lng
         label.alt = sat.alt
+      }
+      for (const marker of plan?.markers ?? []) {
+        if (marker.at) marker.lng = inertial ? inertialLng(marker.at.lng, marker.at.ms, INERTIAL_REF_MS) : marker.at.lng
       }
       globe.htmlElementsData([...labels.values(), ...(plan?.markers ?? [])])
 
@@ -501,18 +575,20 @@ export function GlobeViewport() {
     const s = useMissionStore.getState()
     const timeMs = selectDisplayTimeMs(s)
     const geo = geoAt(effectiveElements(s, object, timeMs), timeMs)
-    globe.pointOfView({ lat: geo.lat, lng: geo.lng, altitude: 1.8 }, 1200)
+    const lng = frameRef.current === 'inertial' ? inertialLng(geo.lng, timeMs, INERTIAL_REF_MS) : geo.lng
+    globe.pointOfView({ lat: geo.lat, lng, altitude: 1.8 }, 1200)
   }, [selectedRsoId])
 
   return (
     <section className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-black" aria-label="3D operating picture">
       <div ref={containerRef} className="absolute inset-0" />
-      <GlobeLegend />
+      <GlobeLegend frame={frame} />
       <SurfaceSwitcher surface={surface} onChange={setSurface} />
+      <FrameSwitcher frame={frame} onChange={setFrame} />
       <SpeedControl />
       <button
         type="button"
-        onClick={() => globeRef.current?.pointOfView(HOME_VIEW, 1000)}
+        onClick={() => globeRef.current?.pointOfView(homeView(frame), 1000)}
         className="absolute right-3 top-3 flex items-center gap-1.5 rounded-lg border border-glass-border bg-glass px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-secondary backdrop-blur-md transition-colors duration-100 ease-out hover:text-primary light:shadow-lg"
       >
         <LocateFixed className="size-3.5" /> Reset view
@@ -581,10 +657,39 @@ function SurfaceSwitcher({ surface, onChange }: { surface: GlobeSurface; onChang
   )
 }
 
-function GlobeLegend() {
+/** Reference frame picker, under the surface picker. */
+function FrameSwitcher({ frame, onChange }: { frame: GlobeFrame; onChange: (frame: GlobeFrame) => void }) {
+  return (
+    <div
+      className="absolute left-3 top-12 flex overflow-hidden rounded-lg border border-glass-border bg-glass backdrop-blur-md light:shadow-lg"
+      role="radiogroup"
+      aria-label="Reference frame"
+    >
+      {FRAME_OPTIONS.map(({ value, label, title, icon: Icon }) => (
+        <button
+          key={value}
+          type="button"
+          role="radio"
+          aria-checked={frame === value}
+          title={title}
+          onClick={() => onChange(value)}
+          className={cn(
+            'flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider transition-colors duration-100 ease-out',
+            frame === value ? 'bg-accent-muted text-accent' : 'text-secondary hover:bg-elevated hover:text-primary',
+          )}
+        >
+          <Icon className="size-3.5" />
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function GlobeLegend({ frame }: { frame: GlobeFrame }) {
   return (
     <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-glass-border bg-glass px-3 py-2 backdrop-blur-xl light:shadow-lg">
-      <div className="mb-1.5 text-[10px] text-secondary">Earth-fixed · Kepler + J₂</div>
+      <div className="mb-1.5 text-[10px] text-secondary">{frame === 'inertial' ? 'Inertial' : 'Earth-fixed'} · Kepler + J₂</div>
       <div className="flex gap-3 text-[10px] font-medium text-primary">
         {(Object.keys(CATEGORY_HEX) as RsoListCategory[]).map((c) => (
           <span key={c} className="flex items-center gap-1.5">

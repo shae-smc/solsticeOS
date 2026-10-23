@@ -15,8 +15,9 @@ import {
 } from '@/store/missionStore'
 import type { ConjunctionEvent, ManeuverPhase, ManeuverSequence } from '@/types'
 
-/** Seconds of wall time for "Play plan" to sweep the whole track. */
-const PLAYBACK_SECONDS = 20
+/** "Play plan" from live starts this long before Burn 1 and stops this long after Burn 2. */
+const PLAYBACK_LEAD_MS = 30 * 60_000
+const PLAYBACK_TAIL_MS = 60 * 60_000
 
 const PHASE_CLASS: Record<ManeuverPhase, string> = {
   COAST_MEAN_PRE: 'bg-elevated text-secondary',
@@ -191,25 +192,32 @@ export function Controls({ sequence }: { sequence: StepPlan }) {
   const followSelected = useMissionStore((s) => s.followSelected)
   const toggleFollow = useMissionStore((s) => s.toggleFollow)
   const [playing, setPlaying] = useState(false)
-  const layout = useMemo(() => layoutTimeline(sequence), [sequence])
 
+  // Plays in simulation time at the globe's speed setting, read every frame so it can be
+  // changed mid-play. It runs from just before Burn 1 to shortly after Burn 2: the coasts
+  // either side are idle and can last days.
   useEffect(() => {
     if (!playing) return
     let frame = 0
     let last = performance.now()
+    const burns = sequence.steps.filter((step) => isBurn(step.phase))
+    const planStart = Date.parse(sequence.steps[0]!.start)
+    const planEnd = Date.parse(sequence.steps.at(-1)!.end)
+    const cue = burns[0] ? Math.max(planStart, Date.parse(burns[0].start) - PLAYBACK_LEAD_MS) : planStart
+    const end = burns.at(-1) ? Math.min(planEnd, Date.parse(burns.at(-1)!.end) + PLAYBACK_TAIL_MS) : planEnd
     const s = useMissionStore.getState()
-    let frac = s.scrubTimeMs === null ? 0 : timeToFrac(layout, s.scrubTimeMs)
-    if (frac >= 1) frac = 0
+    let t = s.scrubTimeMs ?? Math.max(cue, s.simTimeMs)
+    if (t >= end) t = cue
     const step = (now: number) => {
-      frac = Math.min(1, frac + (now - last) / 1000 / PLAYBACK_SECONDS)
+      t = Math.min(end, t + (now - last) * useMissionStore.getState().speed)
       last = now
-      scrubTo(fracToTime(layout, frac))
-      if (frac < 1) frame = requestAnimationFrame(step)
+      scrubTo(t)
+      if (t < end) frame = requestAnimationFrame(step)
       else setPlaying(false)
     }
     frame = requestAnimationFrame(step)
     return () => cancelAnimationFrame(frame)
-  }, [playing, layout, scrubTo])
+  }, [playing, sequence, scrubTo])
 
   const button =
     'flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider transition-colors duration-100 ease-out'
@@ -220,6 +228,7 @@ export function Controls({ sequence }: { sequence: StepPlan }) {
       <button
         type="button"
         onClick={() => setPlaying(!playing)}
+        title="Plays at the globe's speed setting (10x / 100x / 1000x)"
         className={cn(button, playing ? active : idle)}
       >
         {playing ? <Pause className="size-3" /> : <Play className="size-3" />} {playing ? 'Pause' : 'Play plan'}

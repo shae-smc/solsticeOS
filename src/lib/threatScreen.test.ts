@@ -8,8 +8,8 @@ const risat = threatWindowById.get('TW-RISAT2B-INSP2')!
 const userOpposed = (ids: string[]): RSOList => ({ id: 'U1', name: 'OPPOSED INSPECTOR 2', category: 'opposed', scope: 'USER', memberIds: ids })
 
 describe('screening', () => {
-  it('establishes Cartosat-3 and SPADEX from the org lists, but not RISAT-2B yet', () => {
-    expect(establishedWindows(rsoLists).map((w) => w.id).sort()).toEqual(['TW-CARTOSAT-INSP1', 'TW-SPADEX'])
+  it('establishes Cartosat-3, ICEYE-X36 and SPADEX from the org lists, but not RISAT-2B yet', () => {
+    expect(establishedWindows(rsoLists).map((w) => w.id).sort()).toEqual(['TW-CARTOSAT-INSP1', 'TW-ICEYE-K2612', 'TW-SPADEX'])
   })
 
   it('establishes a window once the chaser joins an opposed list, in that list scope only', () => {
@@ -50,6 +50,8 @@ describe('threat log assessment', () => {
     const { entries, ratings } = assessThreats(rsoLists, {}, DEMO_EPOCH_MS, 'REASSESSED')
     expect(entries.map((e) => `${e.objectId}:${e.role}`).sort()).toEqual([
       'CARTOSAT-3:threatened',
+      'COSMOS-2612:threatening',
+      'ICEYE-X36:threatened',
       'INSP-1:threatening',
       'SDX01:threatening',
       'SDX02:threatened',

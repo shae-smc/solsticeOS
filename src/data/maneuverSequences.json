@@ -462,6 +462,138 @@
           "direction": null
         }
       ]
+    },
+    {
+      "id": "SEQ-006-A",
+      "conjunctionId": "CJ-006",
+      "strategy": "OPTIMAL_FUEL",
+      "name": "Optimal Fuel Avoidance",
+      "summary": "+0.09 m/s in-track 5.1 h before TCA opens 5.1 km; Burn 2 restores the nominal orbit.",
+      "transferType": "PHASING",
+      "totalDeltaVMps": 0.18,
+      "postMissDistanceM": 5124,
+      "postPc": 1e-10,
+      "steps": [
+        {
+          "phase": "COAST_MEAN_PRE",
+          "label": "COAST (MEAN ELEM.)",
+          "start": "2026-10-01T06:00:00Z",
+          "end": "2026-10-04T19:39:52Z",
+          "propagator": "SGP4",
+          "deltaVMps": 0,
+          "direction": null
+        },
+        {
+          "phase": "BURN_1",
+          "label": "BURN 1 (DEPARTURE)",
+          "start": "2026-10-04T19:39:52Z",
+          "end": "2026-10-04T19:40:02Z",
+          "propagator": "NUMERICAL",
+          "deltaVMps": 0.09,
+          "direction": {
+            "radial": 0,
+            "inTrack": 1,
+            "crossTrack": 0
+          }
+        },
+        {
+          "phase": "COAST_EPHEMERIS",
+          "label": "COAST (EPHEMERIS)",
+          "start": "2026-10-04T19:40:02Z",
+          "end": "2026-10-05T01:34:11Z",
+          "propagator": "NUMERICAL",
+          "deltaVMps": 0,
+          "direction": null
+        },
+        {
+          "phase": "BURN_2",
+          "label": "BURN 2 (INSERTION)",
+          "start": "2026-10-05T01:34:11Z",
+          "end": "2026-10-05T01:34:21Z",
+          "propagator": "NUMERICAL",
+          "deltaVMps": 0.09,
+          "direction": {
+            "radial": 0,
+            "inTrack": -1,
+            "crossTrack": 0
+          }
+        },
+        {
+          "phase": "COAST_MEAN_POST",
+          "label": "COAST (MEAN ELEM.)",
+          "start": "2026-10-05T01:34:21Z",
+          "end": "2026-10-06T01:34:21Z",
+          "propagator": "SGP4",
+          "deltaVMps": 0,
+          "direction": null
+        }
+      ]
+    },
+    {
+      "id": "SEQ-006-B",
+      "conjunctionId": "CJ-006",
+      "strategy": "RAPID_CLEARANCE",
+      "name": "Rapid Clearance",
+      "summary": "+0.5 m/s in-track 0.8 h before TCA opens 5.1 km; Burn 2 restores the nominal orbit.",
+      "transferType": "PHASING",
+      "totalDeltaVMps": 1,
+      "postMissDistanceM": 5143,
+      "postPc": 1e-10,
+      "steps": [
+        {
+          "phase": "COAST_MEAN_PRE",
+          "label": "COAST (MEAN ELEM.)",
+          "start": "2026-10-01T06:00:00Z",
+          "end": "2026-10-04T23:52:57Z",
+          "propagator": "SGP4",
+          "deltaVMps": 0,
+          "direction": null
+        },
+        {
+          "phase": "BURN_1",
+          "label": "BURN 1 (DEPARTURE)",
+          "start": "2026-10-04T23:52:57Z",
+          "end": "2026-10-04T23:53:53Z",
+          "propagator": "NUMERICAL",
+          "deltaVMps": 0.5,
+          "direction": {
+            "radial": 0,
+            "inTrack": 1,
+            "crossTrack": 0
+          }
+        },
+        {
+          "phase": "COAST_EPHEMERIS",
+          "label": "COAST (EPHEMERIS)",
+          "start": "2026-10-04T23:53:53Z",
+          "end": "2026-10-05T01:34:11Z",
+          "propagator": "NUMERICAL",
+          "deltaVMps": 0,
+          "direction": null
+        },
+        {
+          "phase": "BURN_2",
+          "label": "BURN 2 (INSERTION)",
+          "start": "2026-10-05T01:34:11Z",
+          "end": "2026-10-05T01:35:07Z",
+          "propagator": "NUMERICAL",
+          "deltaVMps": 0.5,
+          "direction": {
+            "radial": 0,
+            "inTrack": -1,
+            "crossTrack": 0
+          }
+        },
+        {
+          "phase": "COAST_MEAN_POST",
+          "label": "COAST (MEAN ELEM.)",
+          "start": "2026-10-05T01:35:07Z",
+          "end": "2026-10-06T01:35:07Z",
+          "propagator": "SGP4",
+          "deltaVMps": 0,
+          "direction": null
+        }
+      ]
     }
   ]
 }

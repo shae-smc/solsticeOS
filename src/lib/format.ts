@@ -61,7 +61,7 @@ export const CATEGORY_LABEL: Record<RsoListCategory, string> = {
 
 /** Hex colours for canvas/WebGL use; keep in sync with the @theme tokens in index.css. */
 export const CATEGORY_HEX: Record<RsoListCategory, string> = {
-  owned: '#3f7fb0',
+  owned: '#3b82f6',
   allied: '#3e9b6f',
   opposed: '#d14f4f',
 }

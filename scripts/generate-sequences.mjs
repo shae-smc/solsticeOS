@@ -39,6 +39,10 @@ const designs = {
     { id: 'A', strategy: 'OPTIMAL_FUEL', name: 'Optimal Fuel Avoidance', dv: 0.12, revsBeforeTca: 3 },
     { id: 'B', strategy: 'RAPID_CLEARANCE', name: 'Rapid Clearance', dv: 0.9, revsBeforeTca: 0.5 },
   ],
+  'CJ-006': [
+    { id: 'A', strategy: 'OPTIMAL_FUEL', name: 'Optimal Fuel Avoidance', dv: 0.09, revsBeforeTca: 3 },
+    { id: 'B', strategy: 'RAPID_CLEARANCE', name: 'Rapid Clearance', dv: 0.5, revsBeforeTca: 0.5 },
+  ],
 }
 
 const iso = (ms) => new Date(Math.round(ms / 1000) * 1000).toISOString().replace('.000Z', 'Z')

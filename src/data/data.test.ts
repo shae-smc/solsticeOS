@@ -13,6 +13,7 @@ import {
   threatWindowById,
   threatWindows,
 } from '.'
+import { HAZARDS } from '@/lib/hazards'
 import { maneuveredElementsAt } from '@/lib/maneuver'
 import { propagateEci } from '@/lib/orbit'
 import { severityBand } from '@/lib/severity'
@@ -127,6 +128,13 @@ describe('threat windows', () => {
     expect(new Set(threatWindows.flatMap((w) => w.sequenceIds))).toEqual(new Set(interceptSequences.map((s) => s.id)))
   })
 
+  it('name at least one known threat type each', () => {
+    for (const w of threatWindows) {
+      expect(w.threatTypes.length, w.id).toBeGreaterThan(0)
+      for (const type of w.threatTypes) expect(HAZARDS[type], `${w.id} ${type}`).toBeDefined()
+    }
+  })
+
   it('span their sequences from the first Burn 1 to the last arrival', () => {
     for (const w of threatWindows) {
       const seqs = sequencesOfWindow.get(w.id)!
@@ -161,6 +169,19 @@ describe('threat windows', () => {
       const range = Math.hypot(c.x - t.x, c.y - t.y, c.z - t.z)
       expect(range, s.id).toBeCloseTo(s.standoffKm, 1)
       expect(range, s.id).toBeLessThan(3)
+    }
+  })
+
+  it('replay Kosmos 2612 shadowing ICEYE-X36 over the reported 15-19 October', () => {
+    const chaser = rsoById.get('COSMOS-2612')!.elements
+    const target = rsoById.get('ICEYE-X36')!.elements
+    const closest = Date.parse('2026-10-18T01:35:00Z')
+    for (const s of sequencesOfWindow.get('TW-ICEYE-K2612')!) {
+      expect(s.steps[3].end < '2026-10-17', s.id).toBe(true)
+      expect(s.steps[4].end, s.id).toBe('2026-10-19T12:00:00Z')
+      const c = propagateEci(maneuveredElementsAt(chaser, s, closest), closest)
+      const t = propagateEci(target, closest)
+      expect(Math.hypot(c.x - t.x, c.y - t.y, c.z - t.z), s.id).toBeLessThan(1)
     }
   })
 
